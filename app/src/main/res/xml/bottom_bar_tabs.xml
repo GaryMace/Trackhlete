@@ -1,0 +1,20 @@
+<tabs>
+    <tab
+        activeColor="#FFFFFF"
+        barColorWhenSelected="#303F9F"
+        icon="@drawable/stock_img"
+        id="@+id/tab_profile"
+        title=""/>
+    <tab
+        activeColor="#FFFFFF"
+        barColorWhenSelected="#303F9F"
+        icon="@drawable/stock_img"
+        id="@+id/tab_activity"
+        title=""/>
+    <tab
+        activeColor="#FFFFFF"
+        barColorWhenSelected="#303F9F"
+        icon="@drawable/stock_img"
+        id="@+id/tab_review"
+        title=""/>
+</tabs>

@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">Trackhlete</string>
+    <string name="action_settings">Settings</string>
+    <string name="bottom_bar_id">TAG</string>
+    <string name="title_activity_maps">Map</string>
+</resources>
