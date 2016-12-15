@@ -1,56 +1,67 @@
 package athletictracking.com.trackhlete.gui;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentManager;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.TextView;
 
-import com.google.android.gms.maps.CameraUpdateFactory;
-import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.GoogleMapOptions;
-import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.MapsInitializer;
-import com.google.android.gms.maps.OnMapReadyCallback;
-import com.google.android.gms.maps.model.CameraPosition;
-import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.SupportMapFragment;
+
+import java.util.Timer;
+import java.util.TimerTask;
 
 import athletictracking.com.trackhlete.R;
+import athletictracking.com.trackhlete.infr.Linker;
 
 /**
  * Created by gary on 11/12/16.
  */
 
-public class TrackSessionFragment extends Fragment implements OnMapReadyCallback{
+public class TrackSessionFragment extends Fragment {
     private static final String TAG = "debug_ts";
+    private static final int DISTANCE_KM = 1000;
+    private static final double DISTANCE_MILE = 1609.34;
     private boolean hasBeenPressed;
-    private MapView mMapView;
-    private GoogleMap mMap;
-    private GoogleMapOptions mOptions = new GoogleMapOptions();
+    private SupportMapFragment fragment;
+    private TextView mDurationTV;
+    private TextView mDistanceTV;
+    private Linker linker;
 
+    private double mDistanceTraveled;
+    private int mElapsedTime;
+    private boolean isTimerRunning;
+    private Timer mTimer;
 
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         // set the view
         View view = inflater.inflate(R.layout.fragment_track_session, container, false);
-        mMapView = (MapView) view.findViewById(R.id.fragment_ts_map_view);
-        mMapView.onCreate(savedInstanceState);
+        linker = (Linker) getActivity();
 
-        mMapView.onResume(); // needed to get the map to display immediately
+        SupportMapFragment mapFragment = (SupportMapFragment) getActivity().getSupportFragmentManager()
+            .findFragmentById(R.id.map);
+        mapFragment.getMapAsync(linker);
+
+
         try {
             MapsInitializer.initialize(getActivity().getApplicationContext());
         } catch (Exception e) {
             e.printStackTrace();
         }
+        mDurationTV = (TextView) view.findViewById(R.id.fragment_ts_timer);
+        mDistanceTV = (TextView) view.findViewById(R.id.fragment_ts_distance);
 
-        mMapView.getMapAsync(this);
 
         final Button button = (Button) view.findViewById(R.id.fragment_ts_start_button);
-
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -58,10 +69,19 @@ public class TrackSessionFragment extends Fragment implements OnMapReadyCallback
                     hasBeenPressed = true;
                     button.setText("Finish");
                     button.setBackgroundResource(R.drawable.fragment_start_session_pressed);
+                    mTimer = new Timer();
+
+                    startTimer();
                 } else {
                     hasBeenPressed = false;
                     button.setText("Start");
                     button.setBackgroundResource(R.drawable.fragment_start_session_unpressed);
+
+                    if (isTimerRunning) {
+                        mTimer.cancel();
+                        mElapsedTime = 0;
+                        isTimerRunning = false;
+                    }
                 }
             }
         });
@@ -70,43 +90,68 @@ public class TrackSessionFragment extends Fragment implements OnMapReadyCallback
     }
 
     @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+        FragmentManager fm = getChildFragmentManager();
+        fragment = (SupportMapFragment) fm.findFragmentById(R.id.map);
+        if (fragment == null) {
+            fragment = SupportMapFragment.newInstance();
+            fm.beginTransaction().replace(R.id.map, fragment).commit();
+        }
+    }
+
+    @Override
     public void onResume() {
         super.onResume();
-        mMapView.onResume();
+        fragment.getMapAsync(linker);
     }
 
-    @Override
-    public void onPause() {
-        super.onPause();
-        mMapView.onPause();
+    protected void startTimer() {
+        isTimerRunning = true;
+        mTimer.scheduleAtFixedRate(new TimerTask() {
+            public void run() {
+                mElapsedTime += 1; //increase every sec
+                mHandle.obtainMessage(1).sendToTarget();
+            }
+        }, 0, 1000);
     }
 
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        mMapView.onDestroy();
+    private Handler mHandle = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {    //handles the timer thread
+
+            if (msg.what == 1) { //Update textView
+                String elapsedTime = parseElapsedTime();
+                mDurationTV.setText(elapsedTime);
+            }
+        }
+    };
+
+    private String parseElapsedTime() {
+        int mins, seconds;
+        mins = mElapsedTime / 60;
+        seconds = mElapsedTime - (mins * 60);
+
+        return mins + ":" + ((seconds < 10) ? ("0" + seconds) : seconds);
     }
 
-    @Override
-    public void onLowMemory() {
-        super.onLowMemory();
-        mMapView.onLowMemory();
+    public void updateDistanceTraveledCallback(double newDist) {
+        if (hasBeenPressed) {
+            mDistanceTraveled += newDist;
+
+            String distanceForSession = parseDistanceTraveled();
+            mDistanceTV.setText(distanceForSession);
+        }
     }
 
-    @Override
-    public void onMapReady(GoogleMap googleMap) {
-        mMap = googleMap;
+    //TODO: change to allow for miles later ... how?
+    private String parseDistanceTraveled() {
+        int metricWhole, metricFraction;
 
-        // For showing a move to my location button
-        //googleMap.setMyLocationEnabled(true);
+        metricWhole = (int) (mDistanceTraveled / DISTANCE_KM);
+        double fraction = (mDistanceTraveled - (metricWhole * DISTANCE_KM)) / 10;
+        metricFraction = (int) fraction;
 
-        // For dropping a marker at a point on the Map
-        LatLng sydney = new LatLng(-34, 151);
-        googleMap.addMarker(new MarkerOptions().position(sydney).title("Marker Title").snippet("Marker Description"));
-        Log.d(TAG, "Location pointer at Sydney");
-        // For zooming automatically to the location of the marker
-        CameraPosition cameraPosition = new CameraPosition.Builder().target(sydney).zoom(12).build();
-        googleMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
-        mOptions.mapType(GoogleMap.MAP_TYPE_TERRAIN);
+        return metricWhole + "." + ((metricFraction < 10) ? ("0" + metricFraction) : metricFraction);
     }
 }

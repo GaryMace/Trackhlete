@@ -36,6 +36,13 @@ import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStates;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.CameraPosition;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.MarkerOptions;
 import com.roughike.bottombar.BottomBar;
 import com.roughike.bottombar.OnTabSelectListener;
 
@@ -45,6 +52,7 @@ import java.util.Date;
 import athletictracking.com.trackhlete.R;
 import athletictracking.com.trackhlete.gui.TrackSessionFragment;
 import athletictracking.com.trackhlete.infr.Linker;
+import athletictracking.com.trackhlete.infra.GpsStatistics;
 
 public class MainActivity extends AppCompatActivity implements Linker, GoogleApiClient.ConnectionCallbacks,
     GoogleApiClient.OnConnectionFailedListener, LocationListener {
@@ -56,6 +64,8 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
     private static final String TAG = "debug_main";
 
     private TrackSessionFragment mSessionFrag;
+    private GoogleMap mMap;
+    private Marker currentPosOnMap;
 
     //  GPS API things  //////////////////////////////////////////////////
     //The desired interval for location updates. Inexact. Updates may be more or less frequent.
@@ -65,7 +75,9 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
     public static final long FASTEST_UPDATE_INTERVAL_IN_MILLISECONDS = 1000;
     private GoogleApiClient mGoogleAPIClient;
     protected LocationRequest mLocationRequest;
-    protected Location mLastLocation;
+    protected Location mCurrLocation;
+    protected Location mPrevLocation;
+    private boolean mFirstLoctionUpdate = true;
     //Tracks the status of the location updates request. Value changes when the user presses the
     //Start Updates and Stop Updates buttons.
     protected Boolean mRequestingLocationUpdates;
@@ -167,12 +179,12 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
                 //setButtonsEnabledState();
             }
 
-            // Update the value of mLastLocation from the Bundle and update the UI to show the
+            // Update the value of mCurrLocation from the Bundle and update the UI to show the
             // correct latitude and longitude.
             if (savedInstanceState.keySet().contains(LOCATION_KEY)) {
-                // Since LOCATION_KEY was found in the Bundle, we can be sure that mLastLocation
+                // Since LOCATION_KEY was found in the Bundle, we can be sure that mCurrLocation
                 // is not null.
-                mLastLocation = savedInstanceState.getParcelable(LOCATION_KEY);
+                mCurrLocation = savedInstanceState.getParcelable(LOCATION_KEY);
             }
 
             // Update the value of mLastUpdateTime from the Bundle and update the UI.
@@ -360,7 +372,7 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
     @Override
     protected void onPause() {
         super.onPause();
-        if (mLastLocation != null)
+        if (mCurrLocation != null)
             stopLocationUpdates();
 
     }
@@ -370,10 +382,10 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
         Log.d(TAG, "Connected to GoogleApiClient");
 
         //Don;t do this if no permission or last location is null.
-        if (mLastLocation == null &&
+        if (mCurrLocation == null &&
             ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
 
-            mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleAPIClient);
+            mCurrLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleAPIClient);
             mLastUpdateTime = DateFormat.getTimeInstance().format(new Date());
         }
         // If the user presses the Start Updates button before GoogleApiClient connects, we set
@@ -390,11 +402,39 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
      */
     @Override
     public void onLocationChanged(Location location) {
-        mLastLocation = location;
+        mPrevLocation = mCurrLocation;
+        mCurrLocation = location;
         mLastUpdateTime = DateFormat.getTimeInstance().format(new Date());
-        Log.d(TAG, "Lat: " +mLastLocation.getLatitude());
-        Log.d(TAG, "Lon: " +mLastLocation.getLongitude());
+        Log.d(TAG, "Lat: " + mCurrLocation.getLatitude());
+        Log.d(TAG, "Lon: " + mCurrLocation.getLongitude());
+
         //TODO: implement GPS tracking logic here
+        if (currentPosOnMap != null) {
+            currentPosOnMap.remove();
+        }
+        LatLng latLng = new LatLng(mCurrLocation.getLatitude(), mCurrLocation.getLongitude());
+        currentPosOnMap = mMap.addMarker(new MarkerOptions().position(latLng));
+        currentPosOnMap.setIcon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE));
+
+        // Showing the current location in Google Map.
+
+        if (mFirstLoctionUpdate) {  // Focuses the map view to the users current location.
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+            mMap.animateCamera(CameraUpdateFactory.zoomTo(15));
+
+            mFirstLoctionUpdate = false;
+        }
+        displayDistanceTraveledCallback();
+    }
+
+    private void displayDistanceTraveledCallback() {
+        if (mPrevLocation != null) {
+            float[] res = new float[1]; //Haversine value stored in here
+            Location.distanceBetween(mCurrLocation.getLatitude(), mCurrLocation.getLongitude(), mPrevLocation.getLatitude(), mPrevLocation.getLongitude(), res);
+
+            Log.d(TAG, "distance traveled: " + res[0]);
+            mSessionFrag.updateDistanceTraveledCallback(res[0]);
+        }
     }
 
     @Override
@@ -410,5 +450,26 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
         // Refer to the javadoc for ConnectionResult to see what error codes might be returned in
         // onConnectionFailed.
         Log.i(TAG, "Connection failed: ConnectionResult.getErrorCode() = " + result.getErrorCode());
+    }
+
+    @Override
+    public void onMapReady(GoogleMap googleMap) {
+        mMap = googleMap;
+        LatLng location;
+
+        // For showing a move to my location button
+        //googleMap.setMyLocationEnabled(true);
+
+        if (mCurrLocation != null) {
+            location = new LatLng(mCurrLocation.getLatitude(), mCurrLocation.getLongitude());
+        } else {
+            location = new LatLng(0, 0);
+        }
+
+        currentPosOnMap = googleMap.addMarker(new MarkerOptions().position(location).title("Marker Title").snippet("Marker Description"));
+        currentPosOnMap.setIcon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE));
+        // For zooming automatically to the location of the marker
+        CameraPosition cameraPosition = new CameraPosition.Builder().target(location).zoom(12).build();
+        googleMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
     }
 }

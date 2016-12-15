@@ -10,11 +10,6 @@
     tools:context="athletictracking.com.trackhlete.base.MainActivity"
     tools:showIn="@layout/activity_main">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Hello World!"/>
-
     <FrameLayout
         android:id="@+id/activity_main_fragment_container"
         android:layout_width="match_parent"
