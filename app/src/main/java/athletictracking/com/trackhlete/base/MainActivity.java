@@ -50,6 +50,7 @@ import java.text.DateFormat;
 import java.util.Date;
 
 import athletictracking.com.trackhlete.R;
+import athletictracking.com.trackhlete.gui.ProfileFragment;
 import athletictracking.com.trackhlete.gui.TrackSessionFragment;
 import athletictracking.com.trackhlete.infr.Linker;
 import athletictracking.com.trackhlete.infra.GpsStatistics;
@@ -126,7 +127,7 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
                 FragmentTransaction ft = fragmentManager.beginTransaction();
 
                 if (tabId == R.id.tab_profile) {
-                    ft.replace(R.id.activity_main_fragment_container, mSessionFrag, getString(R.string.bottom_bar_id)).commit();
+                    ft.replace(R.id.activity_main_fragment_container, new ProfileFragment(), getString(R.string.bottom_bar_id)).commit();
                 } else if (tabId == R.id.tab_activity) {
                     ft.replace(R.id.activity_main_fragment_container, mSessionFrag, getString(R.string.bottom_bar_id)).commit();
 
@@ -424,6 +425,7 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
 
             mFirstLoctionUpdate = false;
         }
+
         displayDistanceTraveledCallback();
     }
 

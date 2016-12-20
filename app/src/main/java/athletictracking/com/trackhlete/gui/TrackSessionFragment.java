@@ -1,5 +1,10 @@
 package athletictracking.com.trackhlete.gui;
 
+import android.content.Context;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -15,30 +20,42 @@ import android.widget.TextView;
 import com.google.android.gms.maps.MapsInitializer;
 import com.google.android.gms.maps.SupportMapFragment;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
 import athletictracking.com.trackhlete.R;
 import athletictracking.com.trackhlete.infr.Linker;
+import athletictracking.com.trackhlete.infra.Split;
 
 /**
  * Created by gary on 11/12/16.
  */
 
-public class TrackSessionFragment extends Fragment {
+public class TrackSessionFragment extends Fragment implements SensorEventListener {
     private static final String TAG = "debug_ts";
     private static final int DISTANCE_KM = 1000;
     private static final double DISTANCE_MILE = 1609.34;
+    private static final int THRESHOLD = 5;
     private boolean hasBeenPressed;
     private SupportMapFragment fragment;
     private TextView mDurationTV;
     private TextView mDistanceTV;
     private Linker linker;
 
+    private SensorManager mSensorManager;
+    private Sensor mAccel;
+    private double mGForce;
+
+    private List<Split> mSplits;
     private double mDistanceTraveled;
     private int mElapsedTime;
+    private int mSplitTime;
+    private int mDistanceForSplit;
     private boolean isTimerRunning;
     private Timer mTimer;
+    private boolean hasAccelometer;
 
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -59,7 +76,21 @@ public class TrackSessionFragment extends Fragment {
         }
         mDurationTV = (TextView) view.findViewById(R.id.fragment_ts_timer);
         mDistanceTV = (TextView) view.findViewById(R.id.fragment_ts_distance);
+        mSensorManager = (SensorManager) getActivity().getSystemService(Context.SENSOR_SERVICE);
 
+        mSplits = new ArrayList<>();
+        mSplitTime = 0;
+        mDistanceForSplit = 0;
+        mGForce = 0;
+        if (mAccel == null) {
+            // Use the accelerometer.
+            if (mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null) {
+                mAccel = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+                hasAccelometer = true;
+            } else {
+                hasAccelometer = false;
+            }
+        }
 
         final Button button = (Button) view.findViewById(R.id.fragment_ts_start_button);
         button.setOnClickListener(new View.OnClickListener() {
@@ -103,7 +134,14 @@ public class TrackSessionFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        mSensorManager.registerListener(this, mAccel, SensorManager.SENSOR_DELAY_NORMAL);
         fragment.getMapAsync(linker);
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        mSensorManager.unregisterListener(this);
     }
 
     protected void startTimer() {
@@ -111,6 +149,7 @@ public class TrackSessionFragment extends Fragment {
         mTimer.scheduleAtFixedRate(new TimerTask() {
             public void run() {
                 mElapsedTime += 1; //increase every sec
+                mSplitTime += 1;
                 mHandle.obtainMessage(1).sendToTarget();
             }
         }, 0, 1000);
@@ -136,11 +175,31 @@ public class TrackSessionFragment extends Fragment {
     }
 
     public void updateDistanceTraveledCallback(double newDist) {
-        if (hasBeenPressed) {
-            mDistanceTraveled += newDist;
+        if (hasBeenPressed && mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null) {
+            if (hasAccelometer) {
+                if (mGForce > THRESHOLD || mGForce < -THRESHOLD) {
+                    mDistanceTraveled += newDist;
+                    mDistanceForSplit += newDist;
 
-            String distanceForSession = parseDistanceTraveled();
-            mDistanceTV.setText(distanceForSession);
+                    String distanceForSession = parseDistanceTraveled();
+                    mDistanceTV.setText(distanceForSession);
+                    if (mDistanceForSplit > DISTANCE_KM) {
+                        //double actual split time = getActualSplitTime();
+                        Split split = new Split();
+
+                        split.setSplitType(Split.SPLIT_TYPE_KM);
+                        split.setTime(mSplitTime);
+                        mSplits.add(split);
+                        mSplitTime = 0;
+                        mDistanceForSplit = 0;
+                    }
+                }
+            } else {
+                mDistanceTraveled += newDist;
+
+                String distanceForSession = parseDistanceTraveled();
+                mDistanceTV.setText(distanceForSession);
+            }
         }
     }
 
@@ -153,5 +212,23 @@ public class TrackSessionFragment extends Fragment {
         metricFraction = (int) fraction;
 
         return metricWhole + "." + ((metricFraction < 10) ? ("0" + metricFraction) : metricFraction);
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent sensorEvent) {
+        float ax, ay, az;
+        if (sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            ax = sensorEvent.values[0];
+            ay = sensorEvent.values[1];
+            az = sensorEvent.values[2];
+
+            mGForce = Math.sqrt((ax * ax) + (ay * ay) + (az * az)) - 9.8;
+            Log.d(TAG, "GFORCE: " + mGForce);
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int i) {
+
     }
 }
