@@ -1,4 +1,4 @@
-package athletictracking.com.trackhlete.infr;
+package athletictracking.com.trackhlete.infra;
 
 import com.google.android.gms.maps.OnMapReadyCallback;
 

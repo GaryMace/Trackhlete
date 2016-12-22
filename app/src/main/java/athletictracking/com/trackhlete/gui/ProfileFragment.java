@@ -7,7 +7,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import athletictracking.com.trackhlete.R;
-import athletictracking.com.trackhlete.infr.Linker;
+import athletictracking.com.trackhlete.infra.Linker;
 
 /**
  * Created by gary on 17/12/16.

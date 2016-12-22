@@ -26,7 +26,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 import athletictracking.com.trackhlete.R;
-import athletictracking.com.trackhlete.infr.Linker;
+import athletictracking.com.trackhlete.infra.Linker;
 import athletictracking.com.trackhlete.infra.Split;
 
 /**

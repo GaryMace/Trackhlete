@@ -52,8 +52,7 @@ import java.util.Date;
 import athletictracking.com.trackhlete.R;
 import athletictracking.com.trackhlete.gui.ProfileFragment;
 import athletictracking.com.trackhlete.gui.TrackSessionFragment;
-import athletictracking.com.trackhlete.infr.Linker;
-import athletictracking.com.trackhlete.infra.GpsStatistics;
+import athletictracking.com.trackhlete.infra.Linker;
 
 public class MainActivity extends AppCompatActivity implements Linker, GoogleApiClient.ConnectionCallbacks,
     GoogleApiClient.OnConnectionFailedListener, LocationListener {
