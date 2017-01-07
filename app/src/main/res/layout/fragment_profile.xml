@@ -1,67 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:id="@+id/activity_main"
-              android:layout_width="match_parent"
-              android:layout_height="match_parent"
-              android:paddingTop="30dp">
+<ListView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <TextView
-            android:id="@+id/profileinstruc"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:scaleType="fitXY"
-            android:text="Press picture to Edit Profile"
-            android:textColor="@color/white"/>
-
-        <de.hdodenhof.circleimageview.CircleImageView
-            android:id="@+id/profile_trans"
-            android:layout_width="200dp"
-            android:layout_height="200dp"
-            android:layout_gravity="center"
-            android:src="@drawable/img"/>
-
-        <TextView
-            android:id="@+id/profileinfo"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:text="Name N/A"
-            android:textColor="@android:color/white"
-            android:textSize="8pt"/>
-
-        <TextView
-            android:id="@+id/profileinfo2"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:text="Age N/A"
-            android:textColor="@android:color/white"
-            android:textSize="8pt"/>
-
-
-        <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="40dp"
-            android:orientation="horizontal"
-            >
-
-            <Button
-                android:id="@+id/profilecamera"
-                android:layout_width="100dp"
-                android:layout_height="100dp"
-                android:layout_alignParentLeft="true"
-                android:layout_alignParentStart="true"
-                android:layout_alignParentTop="true"
-                android:layout_marginLeft="46dp"
-                android:layout_marginStart="46dp"
-                android:background="@android:drawable/ic_menu_camera"/>
-        </RelativeLayout>
-    </LinearLayout>
-</LinearLayout>
+</ListView>

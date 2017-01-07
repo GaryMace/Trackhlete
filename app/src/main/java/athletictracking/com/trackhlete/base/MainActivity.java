@@ -51,6 +51,7 @@ import java.util.Date;
 
 import athletictracking.com.trackhlete.R;
 import athletictracking.com.trackhlete.gui.ProfileFragment;
+import athletictracking.com.trackhlete.gui.SettingsFragment;
 import athletictracking.com.trackhlete.gui.TrackSessionFragment;
 import athletictracking.com.trackhlete.infra.Linker;
 
@@ -128,7 +129,7 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
                 if (tabId == R.id.tab_profile) {
                     ft.replace(R.id.activity_main_fragment_container, new ProfileFragment(), getString(R.string.bottom_bar_id)).commit();
                 } else if (tabId == R.id.tab_activity) {
-                    ft.replace(R.id.activity_main_fragment_container, mSessionFrag, getString(R.string.bottom_bar_id)).commit();
+                    ft.replace(R.id.activity_main_fragment_container, new SettingsFragment(), getString(R.string.bottom_bar_id)).commit();
 
                 } else if (tabId == R.id.tab_review) {
                     ft.replace(R.id.activity_main_fragment_container, mSessionFrag, getString(R.string.bottom_bar_id)).commit();
