@@ -39,7 +39,7 @@ public class TrackSessionFragment extends Fragment {
     private static final String TAG = "debug_ts";
     private static final int DISTANCE_KM = 1000;
     private static final double DISTANCE_MILE = 1609.34;
-    private static final int THRESHOLD = 5;
+    private static final int THRESHOLD = 2;
     private boolean hasBeenPressed;
     private SupportMapFragment fragment;
     private TextView mDurationTV;

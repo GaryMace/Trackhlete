@@ -54,6 +54,7 @@ import com.roughike.bottombar.BottomBar;
 import com.roughike.bottombar.OnTabSelectListener;
 
 import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Timer;
@@ -61,9 +62,11 @@ import java.util.TimerTask;
 
 import athletictracking.com.trackhlete.R;
 import athletictracking.com.trackhlete.gui.ProfileFragment;
+import athletictracking.com.trackhlete.gui.SessionsFragment;
 import athletictracking.com.trackhlete.gui.SettingsFragment;
 import athletictracking.com.trackhlete.gui.TrackSessionFragment;
 import athletictracking.com.trackhlete.infra.Linker;
+import athletictracking.com.trackhlete.infra.Session;
 import athletictracking.com.trackhlete.infra.Split;
 
 public class MainActivity extends AppCompatActivity implements Linker, GoogleApiClient.ConnectionCallbacks,
@@ -83,8 +86,12 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
     private static final String TAG = "debug_main";
     private static final int UPDATE_LIVE_INFORMATION = 1;
     private static double GLOBAL_DISTANCE_METRIC = 1000;
+    private static final double KILOMETER = 1000;
+    private static final double MILE = 1609.34;
 
     private TrackSessionFragment mSessionFrag;
+    private SessionsFragment mReviewSessionsFrag;
+    private SettingsFragment mSettingsFrag;
     private GoogleMap mMap;
     private Marker currentPosOnMap;
 
@@ -108,6 +115,7 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
     private long mOldUpdateTime = 0;
     private int mSpeedCalcs = 0;
     private int mNumSplits = 0;
+    private double mMaxSpeed = 0;
 
     //Accelerometer //////////////////////////////////////////////////////
     private SensorManager mSensorManager;
@@ -178,6 +186,8 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
 
         if (mSessionFrag == null) {
             mSessionFrag = new TrackSessionFragment();
+            mSettingsFrag = new SettingsFragment();
+            mReviewSessionsFrag = new SessionsFragment();
         }
 
         //BottomBar is the navigation tool used in the app.
@@ -191,12 +201,12 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
                 FragmentTransaction ft = fragmentManager.beginTransaction();
 
                 if (tabId == R.id.tab_profile) {
-                    ft.replace(R.id.activity_main_fragment_container, new ProfileFragment(), getString(R.string.bottom_bar_id)).commit();
+                    ft.replace(R.id.activity_main_fragment_container, mSettingsFrag, getString(R.string.bottom_bar_id)).commit();
                 } else if (tabId == R.id.tab_activity) {
-                    ft.replace(R.id.activity_main_fragment_container, new SettingsFragment(), getString(R.string.bottom_bar_id)).commit();
+                    ft.replace(R.id.activity_main_fragment_container, mSessionFrag, getString(R.string.bottom_bar_id)).commit();
 
                 } else if (tabId == R.id.tab_review) {
-                    ft.replace(R.id.activity_main_fragment_container, mSessionFrag, getString(R.string.bottom_bar_id)).commit();
+                    ft.replace(R.id.activity_main_fragment_container, mReviewSessionsFrag, getString(R.string.bottom_bar_id)).commit();
                 }
             }
         });
@@ -496,12 +506,11 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
         mRecentUpateTime = new Date().getTime() / 1000; //Used for calculting avg. speed later
 
         mLastUpdateTime = DateFormat.getTimeInstance().format(new Date());
-        Log.d(TAG, "Old time: " + mOldUpdateTime);
-        Log.d(TAG, "New time: " + mRecentUpateTime);
-        /*Log.d(TAG, "Lat: " + mCurrLocation.getLatitude());
-        Log.d(TAG, "Lon: " + mCurrLocation.getLongitude());*/
+       /* Log.d(TAG, "Old time: " + mOldUpdateTime);
+        Log.d(TAG, "New time: " + mRecentUpateTime);*/
+        Log.d(TAG, "Lat: " + mCurrLocation.getLatitude());
+        Log.d(TAG, "Lon: " + mCurrLocation.getLongitude());
 
-        //TODO: implement GPS tracking logic here
         if (currentPosOnMap != null) {
             currentPosOnMap.remove();   //Prevents multiple markers being placed on map with each loc update
         }
@@ -519,7 +528,7 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
                 mFirstLoctionUpdate = false;    //Only zoom to location for first update
             }
         }
-
+        Log.d(TAG, "Distance travelled: "+  mDistanceTraveled);
         displaySessionChangesCallback();
     }
 
@@ -534,6 +543,9 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
             mSpeeds.add(mAvgSpeedForSplit / mSpeedCalcs);   //Add the average speed for this split
             mElevs.add(mSplitElevChange);
 
+            Log.d(TAG, "Elevs: " + mElevs);
+            Log.d(TAG, "Paces: " + mPaces);
+            Log.d(TAG, "Speeds: " + mSpeeds);
             mSplitElevChange = 0;
             mSplitTime = 0; //TODO: refactor to be more accurate
             mSplitDist = 0;
@@ -562,10 +574,9 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
 
     private boolean impossibleLocationChange(float distance) {
         double speed = distance / getTimeSinceLastUpdate();
-
         if (speed > IMPOSSIBLE_TRAVEL_SPEED)
-            return false;
-        return true;
+            return true;
+        return false;
     }
 
     private void updateSplitInfo(float distance) {
@@ -639,7 +650,23 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
 
     @Override
     public void stopTimer() {
+        //Store data in db!
         mTimer.cancel();
+        String date = getCurrentDate();
+        String distance = getDistanceTraveledAsMetricString();
+        Session session =
+                new Session(date,
+                        getDistanceTraveledAsMetricString(),
+                        parseElapsedTime(mElapsedTime),
+                        mNumSplits,
+                        getAverageSpeedForSession(),
+                        mMaxSpeed,
+                        getOverallElevationChange(),
+                        mLocations,
+                        mPaces,
+                        mElevs,
+                        mSpeeds);
+
         mDistanceTraveled = 0;
         mElapsedTime = 0;
         isTimerRunning = false;
@@ -672,11 +699,32 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
 
     @Override
     public String parseElapsedTime(int time) {
-        int mins, seconds;
+        int hours, mins, seconds;
+        hours = time / 3600;
         mins = time / 60;
         seconds = time - (mins * 60);
 
-        return mins + ":" + ((seconds < 10) ? ("0" + seconds) : seconds);
+        String minuteString = (mins + ":" + ((seconds < 10) ? ("0" + seconds) : seconds));
+
+        return (hours >= 1 && hours < 10) ? ("0" + hours + ":" + minuteString) : minuteString;
+    }
+
+    private double getOverallElevationChange() {
+        double overallElevChange = 0.0;
+        for (double elevChange : mElevs) {
+            overallElevChange += elevChange;
+        }
+        return overallElevChange;
+    }
+
+    private double getAverageSpeedForSession() {
+        double sum = 0.0;
+        for (double avgSpeedForSplit : mSpeeds) {
+            sum += avgSpeedForSplit;
+            if (avgSpeedForSplit > mMaxSpeed)
+                mMaxSpeed = avgSpeedForSplit;
+        }
+        return sum / mSpeeds.size();
     }
 
     @Override
@@ -725,5 +773,17 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
         savedInstaceState.putInt(KEY_TIME_FOR_SESSION, mElapsedTime);
         savedInstaceState.putBoolean(KEY_TIMER_RUNNING, isTimerRunning);
 
+    }
+
+    private String getCurrentDate() {
+        SimpleDateFormat format = new SimpleDateFormat("DD MMM yy");
+        return format.format(new Date());
+    }
+
+    private String getDistanceTraveledAsMetricString() {
+        if (GLOBAL_DISTANCE_METRIC == KILOMETER) {
+            return String.valueOf(mDistanceTraveled / KILOMETER);
+        }
+        return String.valueOf(mDistanceTraveled / MILE);
     }
 }

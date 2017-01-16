@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <android.support.percent.PercentRelativeLayout
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:layout_width="match_parent"
+        android:layout_height="75dp">
+
+        <View
+            android:id="@+id/spacer1"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentStart="true"
+            app:layout_heightPercent="100%"
+            app:layout_widthPercent="20%" />
+
+        <LinearLayout
+            android:id="@+id/list_settings_box"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:layout_toEndOf="@id/spacer1"
+            android:layout_toRightOf="@id/spacer1"
+            android:orientation="vertical"
+            app:layout_widthPercent="25%">
+
+            <TextView
+                android:id="@+id/list_session_distance"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="10.2 km"
+                android:textColor="@color/black"
+                android:textSize="20sp" />
+
+            <TextView
+                android:id="@+id/list_session_duration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="00:39:20"
+                android:textColor="@color/list_settings_grey"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <View
+            android:id="@+id/spacer3"
+            android:layout_toEndOf="@id/list_settings_box"
+            android:layout_toRightOf="@id/list_settings_box"
+            app:layout_heightPercent="100%"
+            app:layout_widthPercent="30%" />
+
+        <TextView
+            android:id="@+id/list_settings_date"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:layout_toEndOf="@id/spacer3"
+            android:layout_toRightOf="@id/spacer3"
+            android:text="28 Dec 2016"
+            android:textColor="@color/list_settings_grey"
+            app:layout_widthPercent="25%" />
+    </android.support.percent.PercentRelativeLayout>
+
+    <android.support.percent.PercentRelativeLayout
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:layout_width="match_parent"
+        android:layout_height="1dp">
+
+        <View
+            android:background="@color/match_sep"
+            app:layout_heightPercent="100%"
+            app:layout_marginStartPercent="20%"
+            app:layout_widthPercent="80%" />
+    </android.support.percent.PercentRelativeLayout>
+</LinearLayout>
