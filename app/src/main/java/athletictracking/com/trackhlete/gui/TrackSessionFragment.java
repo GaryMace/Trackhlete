@@ -1,16 +1,8 @@
 package athletictracking.com.trackhlete.gui;
 
-import android.content.Context;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,14 +12,8 @@ import android.widget.TextView;
 import com.google.android.gms.maps.MapsInitializer;
 import com.google.android.gms.maps.SupportMapFragment;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
-
 import athletictracking.com.trackhlete.R;
 import athletictracking.com.trackhlete.infra.Linker;
-import athletictracking.com.trackhlete.infra.Split;
 
 /**
  * Created by gary on 11/12/16.

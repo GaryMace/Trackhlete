@@ -61,7 +61,6 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 import athletictracking.com.trackhlete.R;
-import athletictracking.com.trackhlete.gui.ProfileFragment;
 import athletictracking.com.trackhlete.gui.SessionsFragment;
 import athletictracking.com.trackhlete.gui.SettingsFragment;
 import athletictracking.com.trackhlete.gui.TrackSessionFragment;
@@ -148,8 +147,8 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
         setContentView(R.layout.activity_main);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
+        /*Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);*/
 
         mRequestingLocationUpdates = false;
         mLastUpdateTime = "";
@@ -174,7 +173,7 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
         // Kick off the process of building a GoogleApiClient and requesting the LocationServices
         // API.
         buildGoogleAPIClient();
-
+/*
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -182,7 +181,7 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
                 Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
                         .setAction("Action", null).show();
             }
-        });
+        });*/
 
         if (mSessionFrag == null) {
             mSessionFrag = new TrackSessionFragment();
