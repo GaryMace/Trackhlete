@@ -5,11 +5,6 @@ package athletictracking.com.trackhlete.infra;
  */
 
 public class Split {
-    public static final int SPLIT_TYPE_MILE = 0;
-    public static final int SPLIT_TYPE_KM = 1;
-    public static final int SPLIT_TYPE_INTERVAL = 2;
-
-    private int splitType;
     private int time;
     private double speed;
     private String pace;
@@ -24,14 +19,6 @@ public class Split {
 
     public void setSpeed(double speed) {
         this.speed = speed;
-    }
-
-    public int getSplitType() {
-        return splitType;
-    }
-
-    public void setSplitType(int splitType) {
-        this.splitType = splitType;
     }
 
     public void setTime(int time) {

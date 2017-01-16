@@ -33,7 +33,9 @@ import athletictracking.com.trackhlete.infra.Split;
  * Created by gary on 11/12/16.
  */
 
-public class TrackSessionFragment extends Fragment implements SensorEventListener {
+public class TrackSessionFragment extends Fragment {
+    private static final String KEY_SESSION_ONGOING = "key_session";
+
     private static final String TAG = "debug_ts";
     private static final int DISTANCE_KM = 1000;
     private static final double DISTANCE_MILE = 1609.34;
@@ -44,18 +46,8 @@ public class TrackSessionFragment extends Fragment implements SensorEventListene
     private TextView mDistanceTV;
     private Linker linker;
 
-    private SensorManager mSensorManager;
-    private Sensor mAccel;
-    private double mGForce;
-
-    private List<Split> mSplits;
     private double mDistanceTraveled;
     private int mElapsedTime;
-    private int mSplitTime;
-    private int mDistanceForSplit;
-    private boolean isTimerRunning;
-    private Timer mTimer;
-    private boolean hasAccelometer;
 
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -64,10 +56,10 @@ public class TrackSessionFragment extends Fragment implements SensorEventListene
         View view = inflater.inflate(R.layout.fragment_track_session, container, false);
         linker = (Linker) getActivity();
 
-        SupportMapFragment mapFragment = (SupportMapFragment) getActivity().getSupportFragmentManager()
+        fragment = (SupportMapFragment) getActivity().getSupportFragmentManager()
             .findFragmentById(R.id.map);
-        mapFragment.getMapAsync(linker);
-
+        fragment.getMapAsync(linker);
+        mDistanceTraveled = 0;
 
         try {
             MapsInitializer.initialize(getActivity().getApplicationContext());
@@ -76,21 +68,6 @@ public class TrackSessionFragment extends Fragment implements SensorEventListene
         }
         mDurationTV = (TextView) view.findViewById(R.id.fragment_ts_timer);
         mDistanceTV = (TextView) view.findViewById(R.id.fragment_ts_distance);
-        mSensorManager = (SensorManager) getActivity().getSystemService(Context.SENSOR_SERVICE);
-
-        mSplits = new ArrayList<>();
-        mSplitTime = 0;
-        mDistanceForSplit = 0;
-        mGForce = 0;
-        if (mAccel == null) {
-            // Use the accelerometer.
-            if (mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null) {
-                mAccel = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-                hasAccelometer = true;
-            } else {
-                hasAccelometer = false;
-            }
-        }
 
         final Button button = (Button) view.findViewById(R.id.fragment_ts_start_button);
         button.setOnClickListener(new View.OnClickListener() {
@@ -98,31 +75,52 @@ public class TrackSessionFragment extends Fragment implements SensorEventListene
             public void onClick(View view) {
                 if (!hasBeenPressed) {
                     hasBeenPressed = true;
-                    button.setText("Finish");
-                    button.setBackgroundResource(R.drawable.fragment_start_session_pressed);
-                    mTimer = new Timer();
-
-                    startTimer();
+                    sessionOngoing(button);
+                    linker.initTimer();
+                    linker.startTimer();
                 } else {
                     hasBeenPressed = false;
-                    button.setText("Start");
-                    button.setBackgroundResource(R.drawable.fragment_start_session_unpressed);
+                    sessionIdle(button);
 
-                    if (isTimerRunning) {
-                        mTimer.cancel();
+                    if (linker.isTimerRunning()) {
+                        //TODO: launch session finished frag
+                        linker.stopTimer();
                         mElapsedTime = 0;
-                        isTimerRunning = false;
+                        mDistanceTraveled = 0;
+                        mDistanceTV.setText("0.00");
+                        mDurationTV.setText("0:00");
                     }
                 }
             }
         });
 
+        if (hasBeenPressed) {
+            mDistanceTraveled = linker.getDistanceTraveled();
+            mDistanceTV.setText(parseDistanceTraveled());
+            mElapsedTime = linker.getElapsedTime();
+            mDurationTV.setText(linker.parseElapsedTime(mElapsedTime));
+            sessionOngoing(button);
+        } else {
+            sessionIdle(button);
+        }
+
         return view;
+    }
+
+    private void sessionIdle(Button button) {
+        button.setText("Start");
+        button.setBackgroundResource(R.drawable.fragment_start_session_unpressed);
+    }
+
+    public void sessionOngoing(Button button) {
+        button.setText("Finish");
+        button.setBackgroundResource(R.drawable.fragment_start_session_pressed);
     }
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
+
         FragmentManager fm = getChildFragmentManager();
         fragment = (SupportMapFragment) fm.findFragmentById(R.id.map);
         if (fragment == null) {
@@ -134,37 +132,13 @@ public class TrackSessionFragment extends Fragment implements SensorEventListene
     @Override
     public void onResume() {
         super.onResume();
-        mSensorManager.registerListener(this, mAccel, SensorManager.SENSOR_DELAY_NORMAL);
         fragment.getMapAsync(linker);
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        mSensorManager.unregisterListener(this);
     }
-
-    protected void startTimer() {
-        isTimerRunning = true;
-        mTimer.scheduleAtFixedRate(new TimerTask() {
-            public void run() {
-                mElapsedTime += 1; //increase every sec
-                mSplitTime += 1;
-                mHandle.obtainMessage(1).sendToTarget();
-            }
-        }, 0, 1000);
-    }
-
-    private Handler mHandle = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {    //handles the timer thread
-
-            if (msg.what == 1) { //Update textView
-                String elapsedTime = parseElapsedTime();
-                mDurationTV.setText(elapsedTime);
-            }
-        }
-    };
 
     private String parseElapsedTime() {
         int mins, seconds;
@@ -174,33 +148,25 @@ public class TrackSessionFragment extends Fragment implements SensorEventListene
         return mins + ":" + ((seconds < 10) ? ("0" + seconds) : seconds);
     }
 
-    public void updateDistanceTraveledCallback(double newDist) {
-        if (hasBeenPressed && mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null) {
-            if (hasAccelometer) {
-                if (mGForce > THRESHOLD || mGForce < -THRESHOLD) {
-                    mDistanceTraveled += newDist;
-                    mDistanceForSplit += newDist;
-
+    public void updateDistanceTraveledCallback() {
+        mDistanceTraveled = linker.getDistanceTraveled();
+        if (hasBeenPressed) {
+            if (linker.hasAccelerometer()) {
+                if (linker.getGForce() > THRESHOLD || linker.getGForce() < -THRESHOLD) {
                     String distanceForSession = parseDistanceTraveled();
                     mDistanceTV.setText(distanceForSession);
-                    if (mDistanceForSplit > DISTANCE_KM) {
-                        //double actual split time = getActualSplitTime();
-                        Split split = new Split();
-
-                        split.setSplitType(Split.SPLIT_TYPE_KM);
-                        split.setTime(mSplitTime);
-                        mSplits.add(split);
-                        mSplitTime = 0;
-                        mDistanceForSplit = 0;
-                    }
                 }
             } else {
-                mDistanceTraveled += newDist;
-
                 String distanceForSession = parseDistanceTraveled();
                 mDistanceTV.setText(distanceForSession);
             }
         }
+    }
+
+    public void updateTimeCallback(int time) {
+        mElapsedTime = time;
+        String elapsedTime = parseElapsedTime();
+        mDurationTV.setText(elapsedTime);
     }
 
     //TODO: change to allow for miles later ... how?
@@ -215,20 +181,7 @@ public class TrackSessionFragment extends Fragment implements SensorEventListene
     }
 
     @Override
-    public void onSensorChanged(SensorEvent sensorEvent) {
-        float ax, ay, az;
-        if (sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-            ax = sensorEvent.values[0];
-            ay = sensorEvent.values[1];
-            az = sensorEvent.values[2];
-
-            mGForce = Math.sqrt((ax * ax) + (ay * ay) + (az * az)) - 9.8;
-            Log.d(TAG, "GFORCE: " + mGForce);
-        }
-    }
-
-    @Override
-    public void onAccuracyChanged(Sensor sensor, int i) {
-
+    public void onSaveInstanceState(Bundle savedInstanceState) {
+        savedInstanceState.putBoolean(KEY_SESSION_ONGOING, hasBeenPressed);
     }
 }

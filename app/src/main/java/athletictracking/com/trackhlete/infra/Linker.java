@@ -7,4 +7,21 @@ import com.google.android.gms.maps.OnMapReadyCallback;
  */
 
 public interface Linker extends OnMapReadyCallback {
+    void initTimer();
+
+    void startTimer();
+
+    void stopTimer();
+
+    boolean isTimerRunning();
+
+    boolean hasAccelerometer();
+
+    double getGForce();
+
+    double getDistanceTraveled();
+
+    int getElapsedTime();
+
+    String parseElapsedTime(int time);
 }

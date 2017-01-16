@@ -1,12 +1,19 @@
 package athletictracking.com.trackhlete.base;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.IntentSender;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.support.annotation.IdRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -47,26 +54,65 @@ import com.roughike.bottombar.BottomBar;
 import com.roughike.bottombar.OnTabSelectListener;
 
 import java.text.DateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import athletictracking.com.trackhlete.R;
 import athletictracking.com.trackhlete.gui.ProfileFragment;
 import athletictracking.com.trackhlete.gui.SettingsFragment;
 import athletictracking.com.trackhlete.gui.TrackSessionFragment;
 import athletictracking.com.trackhlete.infra.Linker;
+import athletictracking.com.trackhlete.infra.Split;
 
 public class MainActivity extends AppCompatActivity implements Linker, GoogleApiClient.ConnectionCallbacks,
-    GoogleApiClient.OnConnectionFailedListener, LocationListener {
+        GoogleApiClient.OnConnectionFailedListener, LocationListener, SensorEventListener {
+    private static final String KEY_DISTANCE_FOR_SESSION = "key_sess_dist";
+    private static final String KEY_TIME_FOR_SESSION = "key_sess_time";
+    private static final String KEY_TIMER_RUNNING = "key_sess_timer";
+
+    private static final double INVALID_TIME_SETTING = -1;
+    private static final double IMPOSSIBLE_TRAVEL_SPEED = 30;   //Assumes running, not cycling
+
     private static final int REQUEST_CHECK_SETTINGS = 1;
     private static final int REQUEST_CHECK_LOCATION_PREFERENCES = 2;
     protected final static String REQUESTING_LOCATION_UPDATES_KEY = "requesting-location-updates-key";
     protected final static String LOCATION_KEY = "location-key";
     protected final static String LAST_UPDATED_TIME_STRING_KEY = "last-updated-time-string-key";
     private static final String TAG = "debug_main";
+    private static final int UPDATE_LIVE_INFORMATION = 1;
+    private static double GLOBAL_DISTANCE_METRIC = 1000;
 
     private TrackSessionFragment mSessionFrag;
     private GoogleMap mMap;
     private Marker currentPosOnMap;
+
+    //Split data /////////////////////////////////////////////////////////
+    private ArrayList<ArrayList<Double>> mLocations;
+    private ArrayList<String> mPaces;
+    private ArrayList<Double> mSpeeds;
+    private ArrayList<Double> mElevs;
+    private ArrayList<Split> mSplits;
+    private boolean isTimerRunning;
+    private Timer mTimer;
+
+    private double mDistanceTraveled;   //Overall distance
+    private double mSplitDist;      //Distance into current split
+    private int mElapsedTime = 0;   //Overall time
+    private int mSplitTime = 0;     //time into current split
+    private double mElevChange;     //Overall elevation change
+    private double mSplitElevChange = 0;
+    private double mAvgSpeedForSplit = 0;
+    private long mRecentUpateTime = 0;
+    private long mOldUpdateTime = 0;
+    private int mSpeedCalcs = 0;
+    private int mNumSplits = 0;
+
+    //Accelerometer //////////////////////////////////////////////////////
+    private SensorManager mSensorManager;
+    private Sensor mAccel;
+    private boolean hasAccelometer;
 
     //  GPS API things  //////////////////////////////////////////////////
     //The desired interval for location updates. Inexact. Updates may be more or less frequent.
@@ -84,6 +130,8 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
     protected Boolean mRequestingLocationUpdates;
     //Time when the location was updated represented as a String.
     protected String mLastUpdateTime;
+
+    private double mGForce = 0.0;
     ///////////////////////////////////////////////////////////////////////
 
     @Override
@@ -97,6 +145,22 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
 
         mRequestingLocationUpdates = false;
         mLastUpdateTime = "";
+        if (savedInstanceState != null) {
+            mDistanceTraveled = savedInstanceState.getDouble(KEY_DISTANCE_FOR_SESSION);
+            mElapsedTime = savedInstanceState.getInt(KEY_TIME_FOR_SESSION);
+            isTimerRunning = savedInstanceState.getBoolean(KEY_TIMER_RUNNING);
+        } else {
+            //get locations? mLocations
+            mDistanceTraveled = 0;
+            isTimerRunning = false; //TODO: careful of this
+            mLocations = new ArrayList<>();
+            mPaces = new ArrayList<>();
+            mSpeeds = new ArrayList<>();
+            mSplits = new ArrayList<>();
+            mElevs = new ArrayList<>();
+        }
+        checkForAccelerometer();
+
         // Update values using data stored in the Bundle.
         updateValuesFromBundle(savedInstanceState);
         // Kick off the process of building a GoogleApiClient and requesting the LocationServices
@@ -108,7 +172,7 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
             @Override
             public void onClick(View view) {
                 Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                    .setAction("Action", null).show();
+                        .setAction("Action", null).show();
             }
         });
 
@@ -138,6 +202,20 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
         });
     }
 
+    private void checkForAccelerometer() {
+        mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+
+        if (mAccel == null) {
+            // Use the accelerometer.
+            if (mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null) {
+                mAccel = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+                hasAccelometer = true;
+            } else {
+                hasAccelometer = false;
+            }
+        }
+    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -163,7 +241,7 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
     /**
      * Updates fields based on data stored in the bundle. Most of the GPS code in here came
      * straight from Google code labs
-     *
+     * <p>
      * But.. it works :)
      *
      * @param savedInstanceState The activity state saved in the Bundle.
@@ -176,7 +254,7 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
             // the Start Updates and Stop Updates buttons are correctly enabled or disabled.
             if (savedInstanceState.keySet().contains(REQUESTING_LOCATION_UPDATES_KEY)) {
                 mRequestingLocationUpdates = savedInstanceState.getBoolean(
-                    REQUESTING_LOCATION_UPDATES_KEY);
+                        REQUESTING_LOCATION_UPDATES_KEY);
                 //setButtonsEnabledState();
             }
 
@@ -197,10 +275,10 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
 
     protected synchronized void buildGoogleAPIClient() {
         mGoogleAPIClient = new GoogleApiClient.Builder(this)
-            .addConnectionCallbacks(this)
-            .addOnConnectionFailedListener(this)
-            .addApi(LocationServices.API)
-            .build();
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .addApi(LocationServices.API)
+                .build();
         createLocationRequest();
         getUserLocationFromRequest();
     }
@@ -215,11 +293,11 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
     //Google's stuff, copied from their tutorial
     protected void getUserLocationFromRequest() {
         LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
-            .addLocationRequest(mLocationRequest);
+                .addLocationRequest(mLocationRequest);
 
         PendingResult<LocationSettingsResult> result =
-            LocationServices.SettingsApi.checkLocationSettings(mGoogleAPIClient,
-                builder.build());
+                LocationServices.SettingsApi.checkLocationSettings(mGoogleAPIClient,
+                        builder.build());
         result.setResultCallback(new ResultCallback<LocationSettingsResult>() {
             @Override
             public void onResult(@NonNull LocationSettingsResult result) {
@@ -241,8 +319,8 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
                             // Show the dialog by calling startResolutionForResult(),
                             // and check the result in onActivityResult().
                             status.startResolutionForResult(
-                                MainActivity.this,
-                                REQUEST_CHECK_SETTINGS);
+                                    MainActivity.this,
+                                    REQUEST_CHECK_SETTINGS);
                         } catch (IntentSender.SendIntentException e) {
                             // Ignore the error.
                         }
@@ -260,26 +338,26 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
     private void checkLocationPermissions() {
 
         if (ContextCompat.checkSelfPermission(this,
-            Manifest.permission.ACCESS_FINE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(this,
-            Manifest.permission.ACCESS_FINE_LOCATION)
-            == PackageManager.PERMISSION_GRANTED) { //Dont care if they have access, ask them anyways
+                Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) { //Dont care if they have access, ask them anyways
 
             // Should we show an explanation?
             if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                Manifest.permission.ACCESS_FINE_LOCATION)) {
+                    Manifest.permission.ACCESS_FINE_LOCATION)) {
                 showExplanation("Permission Needed",        //Make pop-up dialog asking for permissions
-                    "We need to access your GPS to use for matching",
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    REQUEST_CHECK_LOCATION_PREFERENCES
+                        "We need to access your GPS to use for matching",
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        REQUEST_CHECK_LOCATION_PREFERENCES
                 );
             } else {
                 Log.d(TAG, "Not asking, just getting Loc");
                 // No explanation needed, we can request the permission.
 
                 ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                    REQUEST_CHECK_LOCATION_PREFERENCES);
+                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                        REQUEST_CHECK_LOCATION_PREFERENCES);
 
                 // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
                 // app-defined int constant. The callback method gets the
@@ -295,18 +373,18 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
                                  final int permissionRequestCode) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(title)
-            .setMessage(message)
-            .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-                public void onClick(DialogInterface dialog, int id) {
-                    requestPermission(permission, permissionRequestCode);
-                }
-            });
+                .setMessage(message)
+                .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        requestPermission(permission, permissionRequestCode);
+                    }
+                });
         builder.create().show();
     }
 
     private void requestPermission(String permissionName, int permissionRequestCode) {
         ActivityCompat.requestPermissions(this,
-            new String[]{permissionName}, permissionRequestCode);
+                new String[]{permissionName}, permissionRequestCode);
     }
 
     @Override
@@ -316,7 +394,7 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
             case REQUEST_CHECK_LOCATION_PREFERENCES: {
                 // If request is cancelled, the result arrays are empty.
                 if (grantResults.length > 0
-                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     Log.d(TAG, "Starting GPS Update");
                     startLocationUpdates();
                 } else {
@@ -337,7 +415,7 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             Log.d(TAG, "Location update recieved");
             LocationServices.FusedLocationApi.requestLocationUpdates(
-                mGoogleAPIClient, mLocationRequest, this);
+                    mGoogleAPIClient, mLocationRequest, this);
 
         } else {
             Log.d(TAG, "Location update failed");
@@ -362,6 +440,8 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
         if (mGoogleAPIClient.isConnected() && !mRequestingLocationUpdates) {
             startLocationUpdates();
         }
+        mSensorManager.registerListener(this, mAccel, SensorManager.SENSOR_DELAY_NORMAL);
+
     }
 
     protected void onStop() {
@@ -373,6 +453,7 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
     @Override
     protected void onPause() {
         super.onPause();
+        mSensorManager.unregisterListener(this);
         if (mCurrLocation != null)
             stopLocationUpdates();
 
@@ -384,7 +465,7 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
 
         //Don;t do this if no permission or last location is null.
         if (mCurrLocation == null &&
-            ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
 
             mCurrLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleAPIClient);
             mLastUpdateTime = DateFormat.getTimeInstance().format(new Date());
@@ -403,40 +484,114 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
      */
     @Override
     public void onLocationChanged(Location location) {
+        ArrayList<Double> newLoc = new ArrayList<>();
         mPrevLocation = mCurrLocation;
         mCurrLocation = location;
+
+        newLoc.add(mCurrLocation.getLatitude());
+        newLoc.add(mCurrLocation.getLongitude());
+        mLocations.add(newLoc);  //Record all locations visited, will be stored in DB later
+
+        mOldUpdateTime = mRecentUpateTime;
+        mRecentUpateTime = new Date().getTime() / 1000; //Used for calculting avg. speed later
+
         mLastUpdateTime = DateFormat.getTimeInstance().format(new Date());
-        Log.d(TAG, "Lat: " + mCurrLocation.getLatitude());
-        Log.d(TAG, "Lon: " + mCurrLocation.getLongitude());
+        Log.d(TAG, "Old time: " + mOldUpdateTime);
+        Log.d(TAG, "New time: " + mRecentUpateTime);
+        /*Log.d(TAG, "Lat: " + mCurrLocation.getLatitude());
+        Log.d(TAG, "Lon: " + mCurrLocation.getLongitude());*/
 
         //TODO: implement GPS tracking logic here
         if (currentPosOnMap != null) {
-            currentPosOnMap.remove();
+            currentPosOnMap.remove();   //Prevents multiple markers being placed on map with each loc update
         }
         LatLng latLng = new LatLng(mCurrLocation.getLatitude(), mCurrLocation.getLongitude());
-        currentPosOnMap = mMap.addMarker(new MarkerOptions().position(latLng));
-        currentPosOnMap.setIcon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE));
 
-        // Showing the current location in Google Map.
+        //Show the updated marker on the map
+        if (mMap != null) {
+            currentPosOnMap = mMap.addMarker(new MarkerOptions().position(latLng));
+            currentPosOnMap.setIcon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE));
 
-        if (mFirstLoctionUpdate) {  // Focuses the map view to the users current location.
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-            mMap.animateCamera(CameraUpdateFactory.zoomTo(15));
-
-            mFirstLoctionUpdate = false;
+            // Showing the current location in Google Map.
+            if (mFirstLoctionUpdate) {  // Focuses the map view to the users current location, only for the first location update
+                mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+                mMap.animateCamera(CameraUpdateFactory.zoomTo(15));
+                mFirstLoctionUpdate = false;    //Only zoom to location for first update
+            }
         }
 
-        displayDistanceTraveledCallback();
+        displaySessionChangesCallback();
     }
 
-    private void displayDistanceTraveledCallback() {
+    private void analyseRunningData() {
+        if (mSplitDist >= GLOBAL_DISTANCE_METRIC) {
+            Split split = new Split();
+            split.setTime(mSplitTime);
+            mSplits.add(split);
+
+            mNumSplits++;
+            mPaces.add(parseElapsedTime(mSplitTime));
+            mSpeeds.add(mAvgSpeedForSplit / mSpeedCalcs);   //Add the average speed for this split
+            mElevs.add(mSplitElevChange);
+
+            mSplitElevChange = 0;
+            mSplitTime = 0; //TODO: refactor to be more accurate
+            mSplitDist = 0;
+            mSpeedCalcs = 0;
+            mAvgSpeedForSplit = 0;
+        }
+    }
+
+    private void displaySessionChangesCallback() {
         if (mPrevLocation != null) {
             float[] res = new float[1]; //Haversine value stored in here
             Location.distanceBetween(mCurrLocation.getLatitude(), mCurrLocation.getLongitude(), mPrevLocation.getLatitude(), mPrevLocation.getLongitude(), res);
 
-            Log.d(TAG, "distance traveled: " + res[0]);
-            mSessionFrag.updateDistanceTraveledCallback(res[0]);
+            if (!impossibleLocationChange(res[0])) {    //If speed for travel is > 30kph don't update, might need refactoring
+                updateSplitInfo(res[0]);
+                calcAvgSpeedSoFar(res[0]);
+                analyseRunningData();
+                Log.d(TAG, "distance traveled: " + res[0]);
+
+                if (mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null &&
+                        mSessionFrag.isVisible())
+                    mSessionFrag.updateDistanceTraveledCallback();
+            }
         }
+    }
+
+    private boolean impossibleLocationChange(float distance) {
+        double speed = distance / getTimeSinceLastUpdate();
+
+        if (speed > IMPOSSIBLE_TRAVEL_SPEED)
+            return false;
+        return true;
+    }
+
+    private void updateSplitInfo(float distance) {
+        mDistanceTraveled += distance;
+        mSplitDist += distance;
+        if (mPrevLocation != null) {
+            double elevChangeFromUpdate = mCurrLocation.getAltitude() - mPrevLocation.getAltitude();
+            mElevChange += elevChangeFromUpdate;
+            mSplitElevChange += elevChangeFromUpdate;
+        }
+    }
+
+    private void calcAvgSpeedSoFar(float distance) {
+        double time = getTimeSinceLastUpdate();
+
+        if (!(time == INVALID_TIME_SETTING)) {
+            mAvgSpeedForSplit += distance / time;   //TODO: divide this by number average speeds later
+            mSpeedCalcs++;                          //used later to get average speed for split
+        }
+    }
+
+    private double getTimeSinceLastUpdate() {
+        if (mOldUpdateTime == 0)
+            return INVALID_TIME_SETTING;
+        else
+            return mRecentUpateTime - mOldUpdateTime;
     }
 
     @Override
@@ -454,11 +609,82 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
         Log.i(TAG, "Connection failed: ConnectionResult.getErrorCode() = " + result.getErrorCode());
     }
 
+    private Handler mHandle = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {    //handles the timer thread
+
+            if (msg.what == UPDATE_LIVE_INFORMATION &&
+                    mSessionFrag.isVisible()) { //Update textView
+                mSessionFrag.updateTimeCallback(mElapsedTime);
+            }
+        }
+    };
+
+    @Override
+    public void initTimer() {
+        mTimer = new Timer();
+    }
+
+    @Override
+    public void startTimer() {
+        isTimerRunning = true;
+        mTimer.scheduleAtFixedRate(new TimerTask() {
+            public void run() {
+                mElapsedTime += 1; //increase every sec
+                mSplitTime += 1;
+                mHandle.obtainMessage(UPDATE_LIVE_INFORMATION).sendToTarget();
+            }
+        }, 0, 1000);
+    }
+
+    @Override
+    public void stopTimer() {
+        mTimer.cancel();
+        mDistanceTraveled = 0;
+        mElapsedTime = 0;
+        isTimerRunning = false;
+    }
+
+    @Override
+    public boolean isTimerRunning() {
+        return isTimerRunning;
+    }
+
+    @Override
+    public boolean hasAccelerometer() {
+        return hasAccelometer;
+    }
+
+    @Override
+    public double getGForce() {
+        return mGForce;
+    }
+
+    @Override
+    public double getDistanceTraveled() {
+        return mDistanceTraveled;
+    }
+
+    @Override
+    public int getElapsedTime() {
+        return mElapsedTime;
+    }
+
+    @Override
+    public String parseElapsedTime(int time) {
+        int mins, seconds;
+        mins = time / 60;
+        seconds = time - (mins * 60);
+
+        return mins + ":" + ((seconds < 10) ? ("0" + seconds) : seconds);
+    }
+
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
         LatLng location;
 
+        Log.d(TAG, "map ready");
         // For showing a move to my location button
         //googleMap.setMyLocationEnabled(true);
 
@@ -473,5 +699,31 @@ public class MainActivity extends AppCompatActivity implements Linker, GoogleApi
         // For zooming automatically to the location of the marker
         CameraPosition cameraPosition = new CameraPosition.Builder().target(location).zoom(12).build();
         googleMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+    }
+
+    // Accelerometer tracking   /////////////////////////////
+    @Override
+    public void onSensorChanged(SensorEvent sensorEvent) {
+        float ax, ay, az;
+        if (sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            ax = sensorEvent.values[0];
+            ay = sensorEvent.values[1];
+            az = sensorEvent.values[2];
+
+            mGForce = Math.sqrt((ax * ax) + (ay * ay) + (az * az)) - 9.8;
+            //Log.d(TAG, "GFORCE: " + mGForce);
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int i) {
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle savedInstaceState) {
+        savedInstaceState.putDouble(KEY_DISTANCE_FOR_SESSION, mDistanceTraveled);
+        savedInstaceState.putInt(KEY_TIME_FOR_SESSION, mElapsedTime);
+        savedInstaceState.putBoolean(KEY_TIMER_RUNNING, isTimerRunning);
+
     }
 }
