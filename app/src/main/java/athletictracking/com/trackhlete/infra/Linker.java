@@ -24,4 +24,14 @@ public interface Linker extends OnMapReadyCallback {
     int getElapsedTime();
 
     String parseElapsedTime(int time);
+
+    String getDistanceUnit();
+
+    int getUnitSetting();
+
+    double round(double value, int percision);
+
+    String getSpeedUnit();
+
+    void setToolbarText(String title);
 }

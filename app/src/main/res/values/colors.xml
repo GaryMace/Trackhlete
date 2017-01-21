@@ -7,6 +7,7 @@
     <color name ="white">#FFFFFF</color>
     <color name="black">#000000</color>
     <color name="match_sep">#d6d6d6</color>
-    <color name="list_settings_grey">#666666</color>
+    <color name="list_settings_grey">#888888</color>
+    <color name="light_grey">#CFCFCF</color>
 
 </resources>

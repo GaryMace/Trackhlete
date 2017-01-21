@@ -1,11 +1,16 @@
 package athletictracking.com.trackhlete.gui;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.app.FragmentTransaction;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -23,8 +28,12 @@ import athletictracking.com.trackhlete.infra.Session;
  */
 
 public class SessionsFragment extends Fragment {
+    public static final String ARGUMENT_SESSION_ID = "session_id";
     private static final String TAG = "debug_sessions";
+    private static final String REVERT_TO_TAG = "sessions_fragment";
+
     private ArrayList<SessionItem> mSessions;
+    private FragmentManager fragmentManager;
     private List<Session> mPastSessions;
     private DatabaseHandler db;
     private SessionAdapter mAdapter;
@@ -35,12 +44,16 @@ public class SessionsFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         // set the view
-        View view = inflater.inflate(R.layout.fragment_review_sessions, container, false);
+        View view = inflater.inflate(R.layout.fragment_all_sessions, container, false);
+        fragmentManager = getActivity().getSupportFragmentManager();
+
         mListView = (ListView) view.findViewById(R.id.fragment_session_list);
         linker = (Linker) getActivity();
         db = new DatabaseHandler(getContext());
 
+        initItemSelectedListener();
         initSettingsItems();
 
         this.mAdapter = new SessionAdapter(getContext(), mSessions);
@@ -48,6 +61,27 @@ public class SessionsFragment extends Fragment {
         mAdapter.notifyDataSetChanged();
 
         return view;
+    }
+
+    private void initItemSelectedListener() {
+        mListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position,long arg3) {
+                view.setSelected(true);
+                FragmentTransaction ft = fragmentManager.beginTransaction();
+
+                SessionItem sessionSelected = (SessionItem) mListView.getItemAtPosition(position);
+                SingleSessionFragment singleSessionReviewFrag = new SingleSessionFragment();
+                Bundle argData = new Bundle();
+
+                argData.putInt(ARGUMENT_SESSION_ID, sessionSelected.getId());   //TODO: refactor later to pass entire object contents not just the id
+                singleSessionReviewFrag.setArguments(argData);
+
+                ft.addToBackStack(SessionsFragment.REVERT_TO_TAG); //Allow the backbutton to revert back to this fragment
+                ft.replace(R.id.activity_main_fragment_container, singleSessionReviewFrag, getString(R.string.fragment_ss_id)).commit();
+            }
+        });
     }
 
     private void initSettingsItems() {
@@ -60,8 +94,9 @@ public class SessionsFragment extends Fragment {
                 SessionItem item = new SessionItem();
 
                 item.setDuration(session.getOverallTime());
-                item.setDistance(session.getOverallDistance());
+                item.setDistance(String.valueOf(linker.round(Double.parseDouble(session.getOverallDistance()), 1)));
                 item.setDate(session.getDate());
+                item.setId(session.getId());
                 mSessions.add(item);
             }
         } else {
@@ -150,9 +185,10 @@ public class SessionsFragment extends Fragment {
             } else {
                 holder = (SessionAdapter.ViewHolder) convertView.getTag();
             }
-            holder.distance.setText(allSessions.get(position).getDistance());
+            holder.distance.setText(allSessions.get(position).getDistance() + " " + linker.getDistanceUnit());
             holder.duration.setText(allSessions.get(position).getDuration());
             holder.date.setText(allSessions.get(position).getDate());
+            holder.id = allSessions.get(position).getId();
             holder.pos = position;
             return convertView;
         }
@@ -173,11 +209,13 @@ public class SessionsFragment extends Fragment {
             TextView distance;
             TextView duration;
             TextView date;
+            int id; //Used to get from DB later, instead of passing all individualparams
             int pos; //to store the position of the item within the list
         }
     }
 
     class SessionItem {
+        private int id;
         private String distance;
         private String duration;
         private String date;
@@ -208,5 +246,35 @@ public class SessionsFragment extends Fragment {
         public void setDate(String date) {
             this.date = date;
         }
+
+        public int getId() {
+            return id;
+        }
+
+        public void setId(int id) {
+            this.id = id;
+        }
+    }
+
+    //When back pressed go to home
+    @Override
+    public void onResume() {    //TODO: this is more of a hack than a fix.. need to handle the back press properly later
+        super.onResume();
+        getView().setFocusableInTouchMode(true);
+        getView().requestFocus();
+        getView().setOnKeyListener(new View.OnKeyListener() {
+            @Override
+            public boolean onKey(View v, int keyCode, KeyEvent event) {
+                //On back button pressed
+                if (event.getAction() == KeyEvent.ACTION_UP && keyCode == KeyEvent.KEYCODE_BACK) {
+                    Intent startMain = new Intent(Intent.ACTION_MAIN);  //Just go back to home screen, initially it was logging user out.
+                    startMain.addCategory(Intent.CATEGORY_HOME);
+                    startMain.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(startMain);
+                    return true;
+                }
+                return false;
+            }
+        });
     }
 }

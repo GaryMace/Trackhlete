@@ -29,6 +29,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
     private static final String KEY_DATE = "date";
     private static final String KEY_OVERALL_DIST = "overall_dist";
     private static final String KEY_OVERALL_TIME = "overall_time";
+    private static final String KEY_AVG_PACE = "avg_pace";
     private static final String KEY_NUM_SPLITS = "num_splits";
     private static final String KEY_AVG_SPEED = "avg_speed";
     private static final String KEY_MAX_SPEED = "max_speed";
@@ -57,6 +58,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
                 KEY_OVERALL_DIST + " TEXT, " +
                 KEY_OVERALL_TIME + " TEXT, " +
                 KEY_NUM_SPLITS + " REAL, " +
+                KEY_AVG_PACE + " TEXT, " +
                 KEY_AVG_SPEED + " REAL, " +
                 KEY_MAX_SPEED + " REAL, " +
                 KEY_ELEV_GAIN + " REAL, " +
@@ -79,6 +81,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
         values.put(KEY_OVERALL_DIST, session.getOverallDistance());
         values.put(KEY_OVERALL_TIME, session.getOverallTime());
         values.put(KEY_NUM_SPLITS, session.getNumSplits());
+        values.put(KEY_AVG_PACE, session.getAveragePace());
         values.put(KEY_AVG_SPEED, session.getAverageSpeed());
         values.put(KEY_MAX_SPEED, session.getMaxSpeed());
         values.put(KEY_ELEV_GAIN, session.getOverallElevChange());
@@ -106,6 +109,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
                 String overallDist = cursor.getString(cursor.getColumnIndex(KEY_OVERALL_DIST));
                 String overallTime = cursor.getString(cursor.getColumnIndex(KEY_OVERALL_TIME));
                 int numSplits = cursor.getInt(cursor.getColumnIndex(KEY_NUM_SPLITS));
+                String avgPace = cursor.getString(cursor.getColumnIndex(KEY_AVG_PACE));
                 double avgSpeed = cursor.getDouble(cursor.getColumnIndex(KEY_AVG_SPEED));
                 double maxSpeed = cursor.getDouble(cursor.getColumnIndex(KEY_MAX_SPEED));
                 double elevGain = cursor.getDouble(cursor.getColumnIndex(KEY_ELEV_GAIN));
@@ -120,6 +124,7 @@ public class DatabaseHandler extends SQLiteOpenHelper {
                                 overallDist,
                                 overallTime,
                                 numSplits,
+                                avgPace,
                                 avgSpeed,
                                 maxSpeed,
                                 elevGain,
@@ -137,6 +142,51 @@ public class DatabaseHandler extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_RUNDATA, R_ID + " = " + id, null);
         db.close();
+    }
+
+    public Session readSessionById(int id) {
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        String selectQuery = "SELECT * FROM " + TABLE_RUNDATA + " WHERE " + R_ID + " = \"" + id + "\"";
+        Cursor cursor = db.rawQuery(selectQuery, null);
+
+        Session session;
+        if (cursor != null) {
+            cursor.moveToFirst();
+            String date = cursor.getString(cursor.getColumnIndex(KEY_DATE));
+            String overallDist = cursor.getString(cursor.getColumnIndex(KEY_OVERALL_DIST));
+            String overallTime = cursor.getString(cursor.getColumnIndex(KEY_OVERALL_TIME));
+            int numSplits = cursor.getInt(cursor.getColumnIndex(KEY_NUM_SPLITS));
+            String avgPace = cursor.getString(cursor.getColumnIndex(KEY_AVG_PACE));
+            double avgSpeed = cursor.getDouble(cursor.getColumnIndex(KEY_AVG_SPEED));
+            double maxSpeed = cursor.getDouble(cursor.getColumnIndex(KEY_MAX_SPEED));
+            double elevGain = cursor.getDouble(cursor.getColumnIndex(KEY_ELEV_GAIN));
+            ArrayList<ArrayList<Double>> gpsPositions = decodeByteArrayForGPSPositions(cursor.getBlob(cursor.getColumnIndex(KEY_GPS_POSITIONS)));
+            ArrayList<String> paces = decodeByteArrayForStrings(cursor.getBlob(cursor.getColumnIndex(KEY_PACES)));
+            ArrayList<Double> elevs = decodeByteArrayForDoubles(cursor.getBlob(cursor.getColumnIndex(KEY_ELEVS)));
+            ArrayList<Double> avgSpeeds = decodeByteArrayForDoubles(cursor.getBlob(cursor.getColumnIndex(KEY_AVG_SPEEDS)));
+
+            session = new Session(id,
+                    date,
+                    overallDist,
+                    overallTime,
+                    numSplits,
+                    avgPace,
+                    avgSpeed,
+                    maxSpeed,
+                    elevGain,
+                    gpsPositions,
+                    paces,
+                    elevs,
+                    avgSpeeds);
+            Log.d(null, "just pulled" + id + ":" + date);
+        } else {
+            Log.d(null, "cursor is null");
+            return null;
+        }
+        db.close();
+        cursor.close();
+        return session;
     }
 
     private byte[] createByteArray(Object obj) {

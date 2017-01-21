@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="35dp"
+            android:background="@color/light_grey">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginStart="25dp"
+                android:layout_marginLeft="25dp"
+                android:text="@string/frag_ss_global_stats"
+                android:textSize="15sp"
+                android:textColor="@color/colorPrimaryDark"/>
+        </LinearLayout>
+
+        <athletictracking.com.trackhlete.infra.NonScrollListView
+            android:id="@+id/fragment_ss_general_stats_list"
+            android:layout_width="match_parent"
+            android:divider="@null"
+            android:dividerHeight="0dp"
+            android:layout_height="wrap_content" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="35dp"
+            android:layout_marginTop="-2dp"
+            android:background="@color/light_grey">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginStart="25dp"
+                android:layout_marginLeft="25dp"
+                android:text="@string/frag_ss_split_data"
+                android:textSize="15sp"
+                android:textColor="@color/colorPrimaryDark"/>
+        </LinearLayout>
+
+        <athletictracking.com.trackhlete.infra.NonScrollListView
+            android:id="@+id/fragment_ss_splits_stats_list"
+            android:layout_width="match_parent"
+            android:divider="@null"
+            android:dividerHeight="0dp"
+            android:layout_height="wrap_content" />
+    </LinearLayout>
+</ScrollView>

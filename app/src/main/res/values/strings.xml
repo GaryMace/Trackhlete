@@ -2,6 +2,7 @@
     <string name="app_name">Trackhlete</string>
     <string name="action_settings">Settings</string>
     <string name="bottom_bar_id">TAG</string>
+    <string name="fragment_ss_id">TAG</string>
     <string name="title_activity_maps">Map</string>
     <string name="title_activity_settings">Settings</string>
 
@@ -76,4 +77,6 @@
     <string name="pref_ringtone_silent">Silent</string>
 
     <string name="pref_title_vibrate">Vibrate</string>
+    <string name="frag_ss_global_stats">General Stats</string>
+    <string name="frag_ss_split_data">Split Stats</string>
 </resources>

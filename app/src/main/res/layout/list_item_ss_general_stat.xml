@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <android.support.percent.PercentRelativeLayout
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:layout_width="match_parent"
+        android:layout_height="50dp">
+
+        <View
+            android:id="@+id/spacer1"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentStart="true"
+            app:layout_heightPercent="100%"
+            app:layout_widthPercent="10%" />
+
+
+        <TextView
+            android:id="@+id/list_item_ss_desc"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:layout_toEndOf="@id/spacer1"
+            android:layout_toRightOf="@id/spacer1"
+            android:text="Average Pace"
+            android:textColor="@color/list_settings_grey"
+            android:textSize="14sp"
+            app:layout_widthPercent="35%" />
+
+        <View
+            android:id="@+id/spacer3"
+            android:layout_toEndOf="@id/list_item_ss_desc"
+            android:layout_toRightOf="@id/list_item_ss_desc"
+            app:layout_heightPercent="100%"
+            app:layout_widthPercent="30%" />
+
+        <TextView
+            android:id="@+id/list_item_ss_data"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:layout_toEndOf="@id/spacer3"
+            android:layout_toRightOf="@id/spacer3"
+            android:text="05:27 min/km"
+            android:textSize="14sp"
+            android:textColor="@color/black"
+            app:layout_widthPercent="25%" />
+    </android.support.percent.PercentRelativeLayout>
+
+    <android.support.percent.PercentRelativeLayout
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:layout_width="match_parent"
+        android:layout_height="1dp">
+
+        <View
+            android:background="@color/match_sep"
+            app:layout_heightPercent="100%"
+            app:layout_marginStartPercent="10%"
+            app:layout_widthPercent="90%" />
+    </android.support.percent.PercentRelativeLayout>
+</LinearLayout>

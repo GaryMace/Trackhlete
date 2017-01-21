@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <android.support.percent.PercentRelativeLayout
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:layout_width="match_parent"
+        android:layout_height="50dp">
+
+        <TextView
+            android:id="@+id/list_item_ss_split_num"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentStart="true"
+            android:text="1.0"
+            android:textAlignment="center"
+            app:layout_widthPercent="15%" />
+
+        <View
+            android:id="@+id/spacer4"
+            android:background="@color/match_sep"
+            android:layout_width="1dp"
+            android:layout_toEndOf="@id/list_item_ss_split_num"
+            android:layout_toRightOf="@id/list_item_ss_split_num"
+            app:layout_heightPercent="100%" />
+
+
+        <TextView
+            android:id="@+id/list_item_ss_pace"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:layout_toEndOf="@id/spacer4"
+            android:layout_toRightOf="@id/spacer4"
+            android:text="11:12"
+            android:textColor="@color/black"
+            android:textAlignment="center"
+            android:textSize="14sp"
+            app:layout_widthPercent="20%" />
+
+        <View
+            android:id="@+id/spacer5"
+            android:background="@color/match_sep"
+            android:layout_width="1dp"
+            android:layout_toEndOf="@id/list_item_ss_pace"
+            android:layout_toRightOf="@id/list_item_ss_pace"
+            app:layout_heightPercent="100%" />
+
+        <TextView
+            android:id="@+id/list_item_ss_elevation"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:layout_toEndOf="@id/spacer5"
+            android:layout_toRightOf="@id/spacer5"
+            android:text="110 m"
+            android:textColor="@color/black"
+            android:textAlignment="center"
+            android:textSize="14sp"
+            app:layout_widthPercent="20%" />
+
+        <View
+            android:id="@+id/spacer6"
+            android:background="@color/match_sep"
+            android:layout_width="1dp"
+            android:layout_toEndOf="@id/list_item_ss_elevation"
+            android:layout_toRightOf="@id/list_item_ss_elevation"
+            app:layout_heightPercent="100%" />
+
+        <TextView
+            android:id="@+id/list_item_ss_avg_speed"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:layout_toEndOf="@id/spacer6"
+            android:layout_toRightOf="@id/spacer6"
+            android:text="11.4 kph"
+            android:textColor="@color/black"
+            android:textAlignment="center"
+            android:textSize="14sp"
+            app:layout_widthPercent="25%" />
+    </android.support.percent.PercentRelativeLayout>
+
+    <android.support.percent.PercentRelativeLayout
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:layout_width="match_parent"
+        android:layout_height="1dp">
+
+        <View
+            android:background="@color/match_sep"
+            app:layout_heightPercent="100%"
+            app:layout_widthPercent="100%" />
+    </android.support.percent.PercentRelativeLayout>
+</LinearLayout>

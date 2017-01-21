@@ -12,6 +12,7 @@ public class Session {
     private ArrayList<Double> splitSpeeds;
     private ArrayList<Double> elevations;
     private ArrayList<String> paces;
+    private String averagePace;
     private double overallElevChange;
     private String overallDistance;
     private String overallTime;
@@ -26,6 +27,7 @@ public class Session {
                    String overallDistance,
                    String overallTime,
                    int numSplits,
+                   String averagePace,
                    double averageSpeed,
                    double maxSpeed,
                    double overallElevChange,
@@ -38,6 +40,7 @@ public class Session {
         this.overallDistance = overallDistance;
         this.overallTime = overallTime;
         this.numSplits = numSplits;
+        this.averagePace = averagePace;
         this.averageSpeed = averageSpeed;
         this.maxSpeed = maxSpeed;
         this.overallElevChange = overallElevChange;
@@ -52,6 +55,7 @@ public class Session {
                    String overallDistance,
                    String overallTime,
                    int numSplits,
+                   String averagePace,
                    double averageSpeed,
                    double maxSpeed,
                    double overallElevChange,
@@ -63,6 +67,7 @@ public class Session {
         this.overallDistance = overallDistance;
         this.overallTime = overallTime;
         this.numSplits = numSplits;
+        this.averagePace = averagePace;
         this.averageSpeed = averageSpeed;
         this.maxSpeed = maxSpeed;
         this.overallElevChange = overallElevChange;
@@ -90,6 +95,10 @@ public class Session {
 
     public ArrayList<String> getPaces() {
         return paces;
+    }
+
+    public String getAveragePace() {
+        return averagePace;
     }
 
     public double getOverallElevChange() {

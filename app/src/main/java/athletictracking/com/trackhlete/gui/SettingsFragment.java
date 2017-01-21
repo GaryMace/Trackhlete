@@ -60,7 +60,6 @@ public class SettingsFragment extends Fragment {
     }
 
     public class SettingsAdapter extends ArrayAdapter<SettingsItem> {
-
         private Context context;
         private ArrayList<SettingsItem> allSettings;
 
